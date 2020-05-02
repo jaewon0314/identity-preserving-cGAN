@@ -205,9 +205,8 @@ def center_crop(img, crop_h=108, crop_w=108, resize_h=64, resize_w=64):
     img_crop = scipy.misc.imresize(img[h_start:h_start+crop_h, w_start:w_start+crop_w], [resize_h, resize_w])
     return img_crop
 
-def load_images(data_dir, image_paths):
+def load_batch(image_paths):
     images = None
-    print("load_images 진입")
     for i, image_path in enumerate(tqdm(image_paths)):
         try:
             # Load image
@@ -227,7 +226,6 @@ def load_images(data_dir, image_paths):
                 images = np.concatenate([images, loaded_image], axis=0)
         except Exception as e:
             print("Error:", i, e)
-    print("load_images 탈출")
     return images
 
 
@@ -311,9 +309,7 @@ if __name__ == '__main__':
     Load the dataset
     """
     images, y = load_data(data_dir=data_dir)
-
-    loaded_images = load_images(data_dir, images)
-
+    load_images = []
     # Implement label smoothing
     real_labels = np.ones((batch_size, 1), dtype=np.float32) * 0.9
     fake_labels = np.zeros((batch_size, 1), dtype=np.float32) * 0.1
@@ -330,7 +326,7 @@ if __name__ == '__main__':
             gen_losses = []
             dis_losses = []
 
-            number_of_batches = int(len(loaded_images) / batch_size)
+            number_of_batches = int(len(images) / batch_size)
             for index in tqdm(range(number_of_batches)):
                 if iter_time % 500 == 0:
 
@@ -343,8 +339,11 @@ if __name__ == '__main__':
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
 
                     save_rgb_img(gen_images[:64], path="../results/img_{}.png".format(iter_time))
-
-                images_batch = loaded_images[index * batch_size:(index + 1) * batch_size]
+                if epoch==1:
+                    images_batch = loaded_batch(images[index * batch_size:(index + 1) * batch_size])
+                    loaded_images.extend(images_batch)
+                else:
+                    images_batch = loaded_images[index * batch_size:(index + 1) * batch_size]
                 images_batch = images_batch / 127.5 - 1.0
                 images_batch = images_batch.astype(np.float32)
 
@@ -376,9 +375,8 @@ if __name__ == '__main__':
                 # print("g_loss:{}".format(g_loss))
                 iter_time+=1
                 write_log(tensorboard, 'g_loss', g_loss, iter_time)
-                write_log(tensorboard, 'd_loss', d_loss, iter_time)
-                
-
+                write_log(tensorboard, 'd_loss', d_loss, iter_time)  
+            load_images.extend(loaded_batch([number_of_batches*batch_size :])) if epoch == 1
             
         # Save networks
         try:
@@ -488,7 +486,7 @@ if __name__ == '__main__':
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
 
                     for i, img in enumerate(gen_images[:5]):
-                        save_rgb_img(img, path="results/img_opt_{}.png".format(iter_time))
+                        save_rgb_img(img, path="../results/img_opt_{}.png".format(iter_time))
                 
                 images_batch = loaded_images[index * batch_size:(index + 1) * batch_size]
                 images_batch = images_batch / 127.5 - 1.0
