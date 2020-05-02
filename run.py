@@ -207,7 +207,7 @@ def center_crop(img, crop_h=108, crop_w=108, resize_h=64, resize_w=64):
 
 def load_batch(image_paths):
     images = None
-    for i, image_path in enumerate(tqdm(image_paths)):
+    for i, image_path in enumerate(image_paths):
         try:
             # Load image
             loaded_image = image.load_img(image_path)
@@ -244,7 +244,7 @@ def write_log(callback, name, value, batch_no):
     summary = tf.Summary()
     summary_value = summary.value.add()
     summary_value.simple_value = value
-    summary_value.tag = __name__
+    summary_value.tag = name
     callback.writer.add_summary(summary, batch_no)
     callback.writer.flush()
 
@@ -257,9 +257,8 @@ def save_rgb_img(imgs, path):
 
     for i,img in enumerate(imgs):
         ax = fig.add_subplot(8, 8, i+1)
-        ax.imshow(img,vmin=0, vmax=255)
+        ax.imshow((img+1.)/2.)
         ax.axis("off")
-        ax.set_title(str(bin(i)[2:]).zfill(6))
     if not os.path.isdir("../results"):
         os.makedirs("../results")
     plt.savefig(path)
@@ -310,6 +309,7 @@ if __name__ == '__main__':
     Load the dataset
     """
     images, y = load_data(data_dir=data_dir)
+    y=np.array(y)
     loaded_images = []
     # Implement label smoothing
     real_labels = np.ones((batch_size, 1), dtype=np.float32) * 0.9
@@ -319,7 +319,6 @@ if __name__ == '__main__':
     Train the generator and the discriminator network
     """
     if TRAIN_GAN:
-        print("Train_gan 진입")
         iter_time=0
         for epoch in range(epochs):
             print("Epoch:{}".format(epoch))
@@ -340,8 +339,8 @@ if __name__ == '__main__':
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
 
                     save_rgb_img(gen_images[:64], path="../results/img_{}.png".format(iter_time))
-                if epoch==1:
-                    images_batch = loaded_batch(images[index * batch_size:(index + 1) * batch_size])
+                if epoch==0:
+                    images_batch = load_batch(images[index * batch_size:(index + 1) * batch_size])
                     loaded_images.extend(images_batch)
                 else:
                     images_batch = loaded_images[index * batch_size:(index + 1) * batch_size]
@@ -377,15 +376,16 @@ if __name__ == '__main__':
                 iter_time+=1
                 write_log(tensorboard, 'g_loss', g_loss, iter_time)
                 write_log(tensorboard, 'd_loss', d_loss, iter_time)  
-            if epoch == 1:
-                load_images.extend(loaded_batch(images[number_of_batches*batch_size :])) 
+            if epoch == 0:
+                loaded_images.extend(load_batch(images[number_of_batches*batch_size :])) 
+                loaded_images=np.array(loaded_images)
+            try:
+                generator.save_weights("generator.h5")
+                discriminator.save_weights("discriminator.h5")
+            except Exception as e:
+                print("Error:", e)
             
         # Save networks
-        try:
-            generator.save_weights("generator.h5")
-            discriminator.save_weights("discriminator.h5")
-        except Exception as e:
-            print("Error:", e)
 
     """
     Train encoder
