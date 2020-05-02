@@ -1,21 +1,23 @@
 import os
 import os
 import time
+import scipy.misc
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from keras import Input, Model
+from keras import backend as K
 from keras.applications import InceptionResNetV2
 from keras.callbacks import TensorBoard
 from keras.layers import Conv2D, Flatten, Dense, BatchNormalization, Reshape, concatenate, LeakyReLU, Lambda, \
-    K, Activation, UpSampling2D, Dropout
+    Activation, UpSampling2D, Dropout
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from keras_preprocessing import image
 from scipy.io import loadmat
-
+from tqdm import tqdm
 
 def build_encoder():
     """
@@ -188,7 +190,7 @@ def build_image_resizer():
 def load_data(data_dir, dataset='celeba'):
 
     f = open("list_attr_celeba.txt", "r").readlines()
-    y_label = [[0 if i == '-1' else 1 for i in x.split()[1:]] for x in celeba_attr_f[2:]]
+    y_label = [[0 if i == '-1' else 1 for i in x.split()[1:]] for x in f[2:]]
     images=[os.path.join(data_dir, '{:0>6}.jpg'.format(i)) for i in range(1,202600)]
 
     # Return a list of all images and respective age
@@ -205,9 +207,8 @@ def center_crop(img, crop_h=108, crop_w=108, resize_h=64, resize_w=64):
 
 def load_images(data_dir, image_paths):
     images = None
-
-    for i, image_path in enumerate(image_paths):
-        print()
+    print("load_images 진입")
+    for i, image_path in enumerate(tqdm(image_paths)):
         try:
             # Load image
             loaded_image = image.load_img(image_path)
@@ -226,7 +227,7 @@ def load_images(data_dir, image_paths):
                 images = np.concatenate([images, loaded_image], axis=0)
         except Exception as e:
             print("Error:", i, e)
-
+    print("load_images 탈출")
     return images
 
 
@@ -256,7 +257,7 @@ def save_rgb_img(imgs, path):
     """
     fig = plt.figure()
 
-    for i,img in enumerate(imgs)
+    for i,img in enumerate(imgs):
         ax = fig.add_subplot(1, 1, i)
         ax.imshow(img)
         ax.axis("off")
@@ -321,6 +322,7 @@ if __name__ == '__main__':
     Train the generator and the discriminator network
     """
     if TRAIN_GAN:
+        print("Train_gan 진입")
         iter_time=0
         for epoch in range(epochs):
             print("Epoch:{}".format(epoch))
