@@ -256,11 +256,12 @@ def save_rgb_img(imgs, path):
     fig = plt.figure()
 
     for i,img in enumerate(imgs):
-        ax = fig.add_subplot(1, 1, i)
-        ax.imshow(img)
+        ax = fig.add_subplot(8, 8, i+1)
+        ax.imshow(img,vmin=0, vmax=255)
         ax.axis("off")
         ax.set_title(str(bin(i)[2:]).zfill(6))
-
+    if not os.path.isdir("../results"):
+        os.makedirs("../results")
     plt.savefig(path)
     plt.close()
 
@@ -309,7 +310,7 @@ if __name__ == '__main__':
     Load the dataset
     """
     images, y = load_data(data_dir=data_dir)
-    load_images = []
+    loaded_images = []
     # Implement label smoothing
     real_labels = np.ones((batch_size, 1), dtype=np.float32) * 0.9
     fake_labels = np.zeros((batch_size, 1), dtype=np.float32) * 0.1
@@ -333,7 +334,7 @@ if __name__ == '__main__':
                     y_batch = []
                     for i in range(batch_size):
                         y_batch.append([int(x) for x in str(bin(i)[2:]).zfill(6)]) if i<64 else y_batch.append([1,1,1,1,1,1])
-
+                    y_batch=np.array(y_batch)
                     z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
 
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
@@ -376,7 +377,8 @@ if __name__ == '__main__':
                 iter_time+=1
                 write_log(tensorboard, 'g_loss', g_loss, iter_time)
                 write_log(tensorboard, 'd_loss', d_loss, iter_time)  
-            load_images.extend(loaded_batch([number_of_batches*batch_size :])) if epoch == 1
+            if epoch == 1:
+                load_images.extend(loaded_batch(images[number_of_batches*batch_size :])) 
             
         # Save networks
         try:
