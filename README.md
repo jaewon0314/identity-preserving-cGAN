@@ -1,4 +1,4 @@
-## Face Aging Using Conditional GAN
+## identity preserving Conditional GAN
 
 Python 3.6
 
