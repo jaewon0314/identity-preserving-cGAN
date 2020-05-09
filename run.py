@@ -83,7 +83,7 @@ def build_generator():
     x = Dropout(0.2)(x)
 
     x = Reshape((8, 8, 256))(x)
-
+    
     x = UpSampling2D(size=(2, 2))(x)
     x = Conv2D(filters=128, kernel_size=5, padding='same')(x)
     x = BatchNormalization(momentum=0.8)(x)
@@ -312,8 +312,8 @@ if __name__ == '__main__':
     y=np.array(y)
     loaded_images = []
     # Implement label smoothing
-    real_labels = np.ones((batch_size, 1), dtype=np.float32) * 0.9
-    fake_labels = np.zeros((batch_size, 1), dtype=np.float32) * 0.1
+    real_labels = np.ones((batch_size, 1), dtype=np.float32)
+    fake_labels = np.zeros((batch_size, 1), dtype=np.float32)
 
     """
     Train the generator and the discriminator network
@@ -342,12 +342,15 @@ if __name__ == '__main__':
                 if epoch==0:
                     images_batch = load_batch(images[index * batch_size:(index + 1) * batch_size])
                     loaded_images.extend(images_batch)
+                    y_batch = y[index * batch_size:(index + 1) * batch_size]
                 else:
-                    images_batch = loaded_images[index * batch_size:(index + 1) * batch_size]
+                    pick = np.random.randint(0, loaded_images.shape[0], batch_size)
+                    images_batch = loaded_images[pick]
+                    y_batch = y[pick]
                 images_batch = images_batch / 127.5 - 1.0
                 images_batch = images_batch.astype(np.float32)
 
-                y_batch = y[index * batch_size:(index + 1) * batch_size]
+                
                 z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
 
                 """
