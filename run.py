@@ -330,10 +330,8 @@ if __name__ == '__main__':
             for index in tqdm(range(number_of_batches)):
                 if iter_time % 500 == 0:
 
-                    y_batch = []
-                    for i in range(batch_size):
-                        y_batch.append([int(x) for x in str(bin(i)[2:]).zfill(6)]) if i<64 else y_batch.append([1,1,1,1,1,1])
-                    y_batch=np.array(y_batch)
+                    ind = np.random.randint(0, np.shape(loaded_images)[0], batch_size)
+                    y_batch = np.array([y[i] for i in enumerate(ind)])
                     z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
 
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
@@ -371,9 +369,8 @@ if __name__ == '__main__':
                 """
 
                 z_noise2 = np.random.normal(0, 1, size=(batch_size, z_shape))
-                random_labels = np.random.randint(0, 2, 6*batch_size).reshape(-1, 6)
 
-                g_loss = adversarial_model.train_on_batch([z_noise2, random_labels], [1] * batch_size)
+                g_loss = adversarial_model.train_on_batch([z_noise2, y_batch], [1] * batch_size)
 
                 # print("g_loss:{}".format(g_loss))
                 iter_time+=1
