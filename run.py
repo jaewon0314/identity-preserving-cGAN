@@ -310,6 +310,7 @@ if __name__ == '__main__':
     """
     images, y = load_data(data_dir=data_dir)
     y=np.array(y)
+    print(y.shape)
     loaded_images = []
     # Implement label smoothing
     real_labels = np.ones((batch_size, 1), dtype=np.float32)
@@ -328,10 +329,10 @@ if __name__ == '__main__':
 
             number_of_batches = int(len(images) / batch_size)
             for index in tqdm(range(number_of_batches)):
-                if iter_time % 500 == 0:
+                if iter_time % 500 == 0 and iter_time > 0:
 
-                    ind = np.random.randint(0, np.shape(loaded_images)[0], batch_size)
-                    y_batch = np.array([y[i] for i in enumerate(ind)])
+                    inds = np.random.randint(0,202600, batch_size)
+                    y_batch = np.array([y[i] for i in inds])
                     z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
 
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
