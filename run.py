@@ -249,7 +249,7 @@ def write_log(callback, name, value, batch_no):
     callback.writer.flush()
 
 
-def save_rgb_img(imgs, path):
+def save_rgb_img(y_label,imgs, path):
     """
     Save an rgb image
     """
@@ -259,6 +259,7 @@ def save_rgb_img(imgs, path):
         ax = fig.add_subplot(8, 8, i+1)
         ax.imshow((img+1.)/2.)
         ax.axis("off")
+        ax.set_title(''.join(str(x)for x in y_label[i]),fontsize= 5)
     if not os.path.isdir("../results"):
         os.makedirs("../results")
     plt.savefig(path)
@@ -337,7 +338,7 @@ if __name__ == '__main__':
 
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
 
-                    save_rgb_img(gen_images[:64], path="../results/img_{}.png".format(iter_time))
+                    save_rgb_img(y_batch[:64],gen_images[:64], path="../results/img_{}.png".format(iter_time))
                 if epoch==0:
                     images_batch = load_batch(images[index * batch_size:(index + 1) * batch_size])
                     loaded_images.extend(images_batch)
