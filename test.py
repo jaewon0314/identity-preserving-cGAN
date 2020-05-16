@@ -1,3 +1,5 @@
 import numpy as np
-a=[1,2,3,4,5,6]
-print(''.join(str(x)for x in a))
+
+a=np.array([1,3,4])
+y=np.array([1,2,3,4,5,6,7,8])
+print(y[a])

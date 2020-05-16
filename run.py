@@ -314,8 +314,8 @@ if __name__ == '__main__':
     print(y.shape)
     loaded_images = []
     # Implement label smoothing
-    real_labels = np.ones((batch_size, 1), dtype=np.float32)
-    fake_labels = np.zeros((batch_size, 1), dtype=np.float32)
+    real_labels = np.ones((batch_size, 1), dtype=np.float32)*0.9
+    fake_labels = np.zeros((batch_size, 1), dtype=np.float32)+0.1
 
     """
     Train the generator and the discriminator network
@@ -332,7 +332,7 @@ if __name__ == '__main__':
             for index in tqdm(range(number_of_batches)):
                 if iter_time % 500 == 0 and iter_time > 0:
 
-                    inds = np.random.randint(0,202600, batch_size)
+                    inds = np.random.choice(202600, batch_size,replace=False)
                     y_batch = np.array([y[i] for i in inds])
                     z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
 
@@ -344,7 +344,7 @@ if __name__ == '__main__':
                     loaded_images.extend(images_batch)
                     y_batch = y[index * batch_size:(index + 1) * batch_size]
                 else:
-                    pick = np.random.randint(0, loaded_images.shape[0], batch_size)
+                    pick = np.random.choice(loaded_images.shape[0], batch_size, replace=False)
                     images_batch = loaded_images[pick]
                     y_batch = y[pick]
                 images_batch = images_batch / 127.5 - 1.0
@@ -371,8 +371,9 @@ if __name__ == '__main__':
                 """
 
                 z_noise2 = np.random.normal(0, 1, size=(batch_size, z_shape))
+                y_label = y[np.random.choice(202600, batch_size, replace=False)]
 
-                g_loss = adversarial_model.train_on_batch([z_noise2, y_batch], [1] * batch_size)
+                g_loss = adversarial_model.train_on_batch([z_noise2, y_label], [1] * batch_size)
 
                 # print("g_loss:{}".format(g_loss))
                 iter_time+=1
@@ -382,8 +383,13 @@ if __name__ == '__main__':
                 loaded_images.extend(load_batch(images[number_of_batches*batch_size :])) 
                 loaded_images=np.array(loaded_images)
             try:
-                generator.save_weights("generator.h5")
-                discriminator.save_weights("discriminator.h5")
+                if not os.path.isdir("../gen"):
+                    os.makedirs("../gen")
+                    os.makedirs("../dis")
+                if(epoch%5==0){
+                    generator.save_weights("../gen/generator_{}.h5".format(epoch))
+                    discriminator.save_weights("../dis/discriminator_{}.h5".format(epoch))
+                }
             except Exception as e:
                 print("Error:", e)
             
