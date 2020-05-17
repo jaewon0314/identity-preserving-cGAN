@@ -272,7 +272,7 @@ def save_opt_img(real_imgs,gen_imgs,path):
 
     for i in range(4):
         ax1 = fig.add_subplot(4,2,2*i+1)
-        ax1.imshow(real_imgs[i])
+        ax1.imshow((real_imgs[i]+1.)/2.)
         ax1.axis("off")
         ax2 = fig.add_subplot(4,2,2*i+2)
         ax2.imshow((gen_imgs[i]+1.)/2.)
@@ -285,13 +285,13 @@ def save_opt_img(real_imgs,gen_imgs,path):
 if __name__ == '__main__':
     # Define hyperparameters
     data_dir = "../img_align_celeba"
-    epochs = 1000
+    epochs = 100
     batch_size = 128
     image_shape = (64, 64, 3)
     z_shape = 100
     TRAIN_GAN = False
-    TRAIN_ENCODER = True
-    TRAIN_GAN_WITH_FR = False
+    TRAIN_ENCODER = False
+    TRAIN_GAN_WITH_FR = True
     fr_image_shape = (192, 192, 3)
 
     # Define optimizers
@@ -320,7 +320,7 @@ if __name__ == '__main__':
     adversarial_model.compile(loss=['binary_crossentropy'], optimizer=gen_optimizer)
 
     now = time.localtime()
-    tensorboard = TensorBoard(log_dir="/content/drive/My Drive/result/logs/{}_{}_{}:{}".format(now.tm_mon, now.tm_mday, now.tm_hour,now.tm_min)
+    tensorboard = TensorBoard(log_dir="/content/drive/My Drive/result/logs/gen_with_fr_{}_{}_{}:{}".format(now.tm_mon, now.tm_mday, now.tm_hour,now.tm_min))
     tensorboard.set_model(generator)
     tensorboard.set_model(discriminator)
 
@@ -444,7 +444,7 @@ if __name__ == '__main__':
                 write_log(tensorboard, "encoder_loss", encoder_loss, iter_time)
 
             if epoch%10==0:
-                encoder.save_weights("/content/drive/My Drive/result/5_16_1_info/enc/encoder_{}.h5".format(epoch))
+                encoder.save_weights("/content/drive/My Drive/result/info/enc/encoder_{}.h5".format(epoch))
 
     """
     Optimize the encoder and the generator network
@@ -459,86 +459,92 @@ if __name__ == '__main__':
         # Load the generator network
         generator.load_weights("generator_20.h5")
 
-        for index in range(30):
-            real_images = load_batch(images[index * batch_size:(index + 1) * batch_size])
-            y_batch = y_batch = y[index * batch_size:(index + 1) * batch_size]
-            latent = encoder.predict_on_batch(real_image)
-            gen_images = generator.predict_on_batch([latent,y_batch])
-            save_opt_img(real_images[:4],gen_images[:4], path="../drive/My Drive/result/5_16_1_image_opt/img_opt_{}.png".format(iter_time))
+        # testing encoder and generator 
+
+        # for index in range(30):
+        #     print(index)
+        #     real_images = load_batch(images[index * batch_size:(index + 1) * batch_size])
+        #     real_images = real_images / 127.5 - 1.0
+        #     real_images = real_images.astype(np.float32)
+        #     print(real_images[0])
+        #     y_batch = y_batch = y[index * batch_size:(index + 1) * batch_size]
+        #     latent = encoder.predict_on_batch(real_images)
+        #     gen_images = generator.predict_on_batch([latent,y_batch])
+        #     print(gen_images[0])
+        #     save_opt_img(real_images[:4],gen_images[:4], path="../drive/My Drive/result/image_before_opt/img_gen_{}.png".format(index))
 
 
+        image_resizer = build_image_resizer()
+        image_resizer.compile(loss=['binary_crossentropy'], optimizer='adam')
 
-        # image_resizer = build_image_resizer()
-        # image_resizer.compile(loss=['binary_crossentropy'], optimizer='adam')
+        # Face recognition model
+        fr_model = build_fr_model(input_shape=fr_image_shape)
+        fr_model.compile(loss=['binary_crossentropy'], optimizer="adam")
 
-        # # Face recognition model
-        # fr_model = build_fr_model(input_shape=fr_image_shape)
-        # fr_model.compile(loss=['binary_crossentropy'], optimizer="adam")
+        # Make the face recognition network as non-trainable
+        fr_model.trainable = False
 
-        # # Make the face recognition network as non-trainable
-        # fr_model.trainable = False
+        # Input layers
+        input_image = Input(shape=(64, 64, 3))
+        input_label = Input(shape=(6,))
 
-        # # Input layers
-        # input_image = Input(shape=(64, 64, 3))
-        # input_label = Input(shape=(6,))
+        # Use the encoder and the generator network
+        latent0 = encoder(input_image)
+        gen_images = generator([latent0, input_label])
 
-        # # Use the encoder and the generator network
-        # latent0 = encoder(input_image)
-        # gen_images = generator([latent0, input_label])
+        # Resize images to the desired shape
+        resized_images = Lambda(lambda x: K.resize_images(gen_images, height_factor=3, width_factor=3,
+                                                          data_format='channels_last'))(gen_images)
+        embeddings = fr_model(resized_images)
 
-        # # Resize images to the desired shape
-        # resized_images = Lambda(lambda x: K.resize_images(gen_images, height_factor=3, width_factor=3,
-        #                                                   data_format='channels_last'))(gen_images)
-        # embeddings = fr_model(resized_images)
+        # Create a Keras model and specify the inputs and outputs for the network
+        fr_adversarial_model = Model(inputs=[input_image, input_label], outputs=[embeddings])
 
-        # # Create a Keras model and specify the inputs and outputs for the network
-        # fr_adversarial_model = Model(inputs=[input_image, input_label], outputs=[embeddings])
-
-        # # Compile the model
-        # fr_adversarial_model.compile(loss=euclidean_distance_loss, optimizer=adversarial_optimizer)
+        # Compile the model
+        fr_adversarial_model.compile(loss=euclidean_distance_loss, optimizer=adversarial_optimizer)
         
-        # iter_time=0
-        # for epoch in range(epochs):
-        #     print("Epoch:", epoch)
+        iter_time=0
+        for epoch in range(epochs):
+            print("Epoch:", epoch)
 
-        #     reconstruction_losses = []
+            number_of_batches = int(len(images) / batch_size)
+            for index in tqdm(range(number_of_batches)):
+                # print("Batch:", index + 1)
+                if iter_time % 500 == 0 and iter_time>0:
+                    pick=np.random.choice(np.shape(loaded_images)[0], batch_size, replace=False)
+                    y_batch = y[pick]
+                    real_images = np.array([loaded_images[i] for i in pick])
+                    real_images = real_images / 127.5 - 1.0
+                    real_images = real_images.astype(np.float32)
+                    z_vector = encoder.predict_on_batch(real_images)
 
-        #     number_of_batches = int(len(images) / batch_size)
-        #     for index in tqdm(range(number_of_batches)):
-        #         # print("Batch:", index + 1)
-        #         if iter_time % 500 == 0 and iter_time>0:
-        #             pick=np.random.choice(np.shape(loaded_images)[0], batch_size, replace=False)
-        #             y_batch = y[pick]
-        #             real_images = np.array([loaded_images[i] for i in pick])
-        #             z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
-
-        #             gen_images = generator.predict_on_batch([z_noise, y_batch])
-        #             save_opt_img(real_images[:4],gen_images[:4], path="../drive/My Drive/result/5_16_1_image_opt/img_opt_{}.png".format(iter_time))
+                    gen_images = generator.predict_on_batch([z_vector, y_batch])
+                    save_opt_img(real_images[:4],gen_images[:4], path="../drive/My Drive/result/image_after_opt/img_opt_{}.png".format(iter_time))
                 
-        #         if epoch==0:
-        #             images_batch = load_batch(images[index * batch_size:(index + 1) * batch_size])
-        #             loaded_images.extend(images_batch)
-        #             y_batch = y[index * batch_size:(index + 1) * batch_size]
-        #         else:
-        #             pick = np.random.choice(loaded_images.shape[0], batch_size, replace=False)
-        #             images_batch = loaded_images[pick]
-        #             y_batch = y[pick]
-        #         images_batch = images_batch / 127.5 - 1.0
-        #         images_batch = images_batch.astype(np.float32)
+                if epoch==0:
+                    images_batch = load_batch(images[index * batch_size:(index + 1) * batch_size])
+                    loaded_images.extend(images_batch)
+                    y_batch = y[index * batch_size:(index + 1) * batch_size]
+                else:
+                    pick = np.random.choice(loaded_images.shape[0], batch_size, replace=False)
+                    images_batch = loaded_images[pick]
+                    y_batch = y[pick]
+                images_batch = images_batch / 127.5 - 1.0
+                images_batch = images_batch.astype(np.float32)
 
-        #         images_batch_resized = image_resizer.predict_on_batch(images_batch)
+                images_batch_resized = image_resizer.predict_on_batch(images_batch)
 
-        #         real_embeddings = fr_model.predict_on_batch(images_batch_resized)
+                real_embeddings = fr_model.predict_on_batch(images_batch_resized)
 
-        #         reconstruction_loss = fr_adversarial_model.train_on_batch([images_batch, y_batch], real_embeddings)
+                reconstruction_loss = fr_adversarial_model.train_on_batch([images_batch, y_batch], real_embeddings)
 
-        #         # print("Reconstruction loss:", reconstruction_loss)
-        #         iter_time+=1
-        #         write_log(tensorboard, "reconstruction_loss", reconstruction_loss, iter_time)
-        #     if epoch == 0:
-        #         loaded_images.extend(load_batch(images[number_of_batches*batch_size :])) 
-        #         loaded_images=np.array(loaded_images)
-        #     if epoch%5 ==0:
-        #         generator.save_weights("../drive/My Drive/result/5_16_1_info/opt_gen/generator_optimized_{}.h5".format(epoch))
-        #         encoder.save_weights("../drive/My Drive/result/5_16_1_info/opt_enc/encoder_optimized_{}.h5".format(epoch)) 
+                # print("Reconstruction loss:", reconstruction_loss)
+                iter_time+=1
+                write_log(tensorboard, "reconstruction_loss", reconstruction_loss, iter_time)
+            if epoch == 0:
+                loaded_images.extend(load_batch(images[number_of_batches*batch_size :])) 
+                loaded_images=np.array(loaded_images)
+            if epoch%5 ==0:
+                generator.save_weights("../drive/My Drive/result/info/opt_gen/generator_optimized_{}.h5".format(epoch))
+                encoder.save_weights("../drive/My Drive/result/info/opt_enc/encoder_optimized_{}.h5".format(epoch)) 
         
