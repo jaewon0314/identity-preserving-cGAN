@@ -271,10 +271,10 @@ def save_opt_img(real_imgs,gen_imgs,path):
     fig = plt.figure()
 
     for i in range(4):
-        ax1 = fig.add_subplot(4,2,2*i)
+        ax1 = fig.add_subplot(4,2,2*i+1)
         ax1.imshow(real_imgs[i])
         ax1.axis("off")
-        ax2 = fig.add_subplot(4,2,2*i+1)
+        ax2 = fig.add_subplot(4,2,2*i+2)
         ax2.imshow((gen_imgs[i]+1.)/2.)
         ax2.axis("off")
 
@@ -285,7 +285,7 @@ def save_opt_img(real_imgs,gen_imgs,path):
 if __name__ == '__main__':
     # Define hyperparameters
     data_dir = "../img_align_celeba"
-    epochs = 100
+    epochs = 1000
     batch_size = 128
     image_shape = (64, 64, 3)
     z_shape = 100
@@ -319,7 +319,7 @@ if __name__ == '__main__':
     adversarial_model = Model(inputs=[input_z_noise, input_label], outputs=[valid])
     adversarial_model.compile(loss=['binary_crossentropy'], optimizer=gen_optimizer)
 
-    tensorboard = TensorBoard(log_dir="logs/{}".format(time.time()))
+    tensorboard = TensorBoard(log_dir="/content/drive/My Drive/result/logs/{}".format(time.time()))
     tensorboard.set_model(generator)
     tensorboard.set_model(discriminator)
 
@@ -405,8 +405,6 @@ if __name__ == '__main__':
                     discriminator.save_weights("../dis/discriminator_{}.h5".format(epoch))
             except Exception as e:
                 print("Error:", e)
-            
-        # Save networks
 
     """
     Train encoder
@@ -424,8 +422,8 @@ if __name__ == '__main__':
         except Exception as e:
             print("Error:", e)
 
-        z_i = np.random.normal(0, 1, size=(5000, z_shape))
-        y = np.random.randint(0, 2, 6*5000,dtype=np.int64).reshape(-1, 6)
+        z_i = np.random.normal(0, 1, size=(50000, z_shape))
+        y_i = np.random.choice(y, 50000, replace=False)
 
         for epoch in range(epochs):
             print("Epoch:", epoch)
@@ -433,9 +431,9 @@ if __name__ == '__main__':
             number_of_batches = int(z_i.shape[0] / batch_size)
             for index in tqdm(range(number_of_batches)):
                 # print("Batch:", index + 1)
-
-                z_batch = z_i[index * batch_size:(index + 1) * batch_size]
-                y_batch = y[index * batch_size:(index + 1) * batch_size]
+                pick = np.choice(50000,batch_size,replace = False)
+                z_batch = z_i[pick]
+                y_batch = y_i[pick]
 
                 generated_images = generator.predict_on_batch([z_batch, y_batch])
 
@@ -444,9 +442,15 @@ if __name__ == '__main__':
                 iter_time+=1
                 write_log(tensorboard, "encoder_loss", encoder_loss, iter_time)
 
-
-        # Save the encoder model
-        encoder.save_weights("encoder.h5")
+            if epoch%5==0:
+                z_batch=np.random.normal(0,1,size=(batch_size,z_shape))
+                y_batch = y[np.choice(202599,batch_size,replace = False)]
+                generated_images = generator.predict_on_batch([z_batch,y_batch])
+                latent = encoder.predict_on_batch(generated_images)
+                print("z : {}".format(z_batch[0]))
+                print("latent : {}".format(latent[0]))
+                # Save the encoder model
+                encoder.save_weights("encoder.h5")
 
     """
     Optimize the encoder and the generator network
@@ -455,6 +459,7 @@ if __name__ == '__main__':
 
         # Load the encoder network
         encoder = build_encoder()
+        tensorboard.set_model(encoder)
         encoder.load_weights("encoder.h5")
 
         # Load the generator network
@@ -495,17 +500,17 @@ if __name__ == '__main__':
 
             reconstruction_losses = []
 
-            number_of_batches = int(len(loaded_images) / batch_size)
+            number_of_batches = int(len(images) / batch_size)
             for index in tqdm(range(number_of_batches)):
                 # print("Batch:", index + 1)
-                if iter_time % 500 == 0:
+                if iter_time % 500 == 0 and iter_time>0:
                     pick=np.random.choice(np.shape(loaded_images)[0], batch_size, replace=False)
                     y_batch = y[pick]
                     real_images = np.array([loaded_images[i] for i in pick])
                     z_noise = np.random.normal(0, 1, size=(batch_size, z_shape))
 
                     gen_images = generator.predict_on_batch([z_noise, y_batch])
-                    save_opt_img(real_images[:4],gen_images[:4], path="../drive/My Drive/resultsult/5_16_1_image_opt/img_opt_{}.png".format(iter_time))
+                    save_opt_img(real_images[:4],gen_images[:4], path="../drive/My Drive/result/5_16_1_image_opt/img_opt_{}.png".format(iter_time))
                 
                 if epoch==0:
                     images_batch = load_batch(images[index * batch_size:(index + 1) * batch_size])
@@ -527,7 +532,10 @@ if __name__ == '__main__':
                 # print("Reconstruction loss:", reconstruction_loss)
                 iter_time+=1
                 write_log(tensorboard, "reconstruction_loss", reconstruction_loss, iter_time)
-
-         # Save improved weights for both of the networks
-        generator.save_weights("generator_optimized.h5")
-        encoder.save_weights("encoder_optimized.h5")
+            if epoch == 0:
+                loaded_images.extend(load_batch(images[number_of_batches*batch_size :])) 
+                loaded_images=np.array(loaded_images)
+            if epoch%5 ==0:
+                generator.save_weights("../drive/My Drive/result/5_16_1_info/opt_gen/generator_optimized_{}.h5".format(epoch))
+                encoder.save_weights("../drive/My Drive/result/5_16_1_info/opt_enc/encoder_optimized_{}.h5".format(epoch)) 
+        
